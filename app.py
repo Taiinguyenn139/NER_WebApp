@@ -4,6 +4,7 @@ import pandas as pd
 import spacy
 from spacy import displacy
 import en_core_web_sm
+from processing import build_model, predict, load_data
 
 nlp = spacy.load('en_core_web_md')
 
@@ -17,45 +18,48 @@ def index():
 
 @app.route('/process', methods=["POST"])
 def process():
+    model = build_model(17)
+    model.load_weights("model.hdf5")
     if request.method == 'POST':
         choice = request.form['taskoption']
         rawtext = request.form['rawtext']
-        doc = nlp(rawtext)
-        d = []
-        for ent in doc.ents:
-            d.append((ent.label_, ent.text))
-            df = pd.DataFrame(d, columns=('named entity', 'output'))
-            ORG_named_entity = df.loc[df['named entity'] == 'ORG']['output']
-            PERSON_named_entity = df.loc[df['named entity'] == 'PERSON']['output']
-            GPE_named_entity = df.loc[df['named entity'] == 'GPE']['output']
-            MONEY_named_entity = df.loc[df['named entity'] == 'MONEY']['output']
-            TIME_named_entity = df.loc[df['named entity'] == 'TIME']['output']
-            EVENT_named_entity = df.loc[df['named entity'] == 'EVENT']['output']
-            ART_named_entity = df.loc[df['named entity'] == 'WORK_OF_ART']['output']
-            LOC_named_entity = df.loc[df['named entity'] == 'LOC']['output']
+        df = load_data()
+        doc = predict(df,rawtext, model)
+
+
+
+
+        ORG_named_entity = doc.loc[(doc['named entity'] == 'B-org') | (doc['named entity'] == 'I-org')]['output']
+        PER_named_entity = doc.loc[(doc['named entity'] == 'B-per') | (doc['named entity'] == 'I-per')]['output']
+        GEO_named_entity = doc.loc[(doc['named entity'] == 'B-geo') | (doc['named entity'] == 'I-geo')]['output']
+        GPE_named_entity = doc.loc[(doc['named entity'] == 'B-gpe') | (doc['named entity'] == 'I-gpe')]['output']
+        TIM_named_entity = doc.loc[(doc['named entity'] == 'B-tim') | (doc['named entity'] == 'I-tim')]['output']
+        ART_named_entity = doc.loc[(doc['named entity'] == 'B-art') | (doc['named entity'] == 'I-art')]['output']
+        EVE_named_entity = doc.loc[(doc['named entity'] == 'B-eve') | (doc['named entity'] == 'I-eve')]['output']
+        NAT_named_entity = doc.loc[(doc['named entity'] == 'B-nat') | (doc['named entity'] == 'I-nat')]['output']
         if choice == 'organization':
             results = ORG_named_entity
             num_of_results = len(results)
         elif choice == 'person':
-            results = PERSON_named_entity
+            results = PER_named_entity
+            num_of_results = len(results)
+        elif choice == 'geographical':
+            results = GEO_named_entity
             num_of_results = len(results)
         elif choice == 'geopolitical':
             results = GPE_named_entity
             num_of_results = len(results)
-        elif choice == 'money':
-            results = MONEY_named_entity
-            num_of_results = len(results)
         elif choice == 'time':
-            results = TIME_named_entity
+            results = TIM_named_entity
             num_of_results = len(results)
         elif choice == 'event':
-            results = EVENT_named_entity
+            results = EVE_named_entity
             num_of_results = len(results)
         elif choice == 'art':
             results = ART_named_entity
             num_of_results = len(results)
-        elif choice == 'Geographical Entity':
-            results = LOC_named_entity
+        elif choice == 'natural phenomenon':
+            results = NAT_named_entity
             num_of_results = len(results)
 
     return render_template("index.html", results=results, num_of_results=num_of_results)
